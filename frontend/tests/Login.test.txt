@@ -1,0 +1,118 @@
+/* eslint-disable no-undef */
+
+/*  RENDERIZAR COMPONENTES Y SIMULAR EVENTOS  */
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+/*  ENRUTADOR YA QUE EL LOGIN MANEJA RUTAS */
+import { BrowserRouter as Router } from 'react-router-dom';
+
+/* COMPONENTE A TESTEAR  */
+import { Login } from '../src/components/Login';
+
+/* COMPONENTES ADICIONALES DE JEST   */
+import '@testing-library/jest-dom';
+
+/*  SIMULAR LLAMADAS A LA API DEL BACKEND  */
+import fetchMock from 'jest-fetch-mock';
+
+/* INICIALIZAR MOCKS DE FETCH  */
+fetchMock.enableMocks();
+
+/*  DESCRIBIR EL GRUPO DE PRUEBAS  */
+describe('<Login />', () => {
+  /*  RESETEAR LOS MOCKS DE FETCH ANTES DE CADA PRUEBA  */
+  beforeEach(() => {
+    fetch.resetMocks();
+  });
+
+  /*  PRUEBA N1 */
+  test('Se renderiza correctamente <Login />', () => {
+    /*  RENDERIZAR EL COMPONENTE <Login />  */
+    render(
+      <Router>
+        <Login />
+      </Router>
+    );
+
+    /*  VERIFICAR QUE LOS ELEMENTOS ESTÉN EN EL DOM  */
+    expect(screen.getByLabelText(/Nombre de usuario/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Contraseña/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ingresar/i)).toBeInTheDocument();
+  });
+
+  /*  PRUEBA N2 */
+  test('Envía el formulario de inicio de sesión y maneja la respuesta exitosa', async () => {
+    /*  SIMULAR RESPUESTA EXITOSA DE LA API  */
+    fetchMock.mockResponseOnce(
+      JSON.stringify({
+        token: 'test-token',
+        usuarioId: '123',
+        tipoUsuario: 'admin'
+      })
+    );
+
+    /*  RENDERIZAR EL COMPONENTE <Login />  */
+    render(
+      <Router>
+        <Login />
+      </Router>
+    );
+
+    /*  SIMULAR CAMBIOS EN LOS INPUTS  */
+    fireEvent.change(screen.getByLabelText(/Nombre de usuario/i), {
+      target: { value: 'testuser' }
+    });
+
+    fireEvent.change(screen.getByLabelText(/Contraseña/i), {
+      target: { value: 'password' }
+    });
+
+    fireEvent.click(screen.getByText(/Ingresar/i));
+
+    /*  ESPERAR A QUE SE REALICE LA PETICIÓN  */
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://localhost:4000/users/login',
+        expect.any(Object)
+      );
+
+      /*  VERIFICAR QUE LOS DATOS SE GUARDEN EN LOCALSTORAGE  */
+      expect(localStorage.getItem('token')).toBe('test-token');
+      expect(localStorage.getItem('usuarioId')).toBe('123');
+      expect(localStorage.getItem('tipoUsuario')).toBe('admin');
+    });
+  });
+
+  /*  PRUEBA N3 */
+  test('Manejo de errores con Credenciales Invalidas', async () => {
+    /*  SIMULAR RESPUESTA DE LA API CON CREDENCIALES INVÁLIDAS  */
+    fetchMock.mockResponseOnce(
+      JSON.stringify({ message: 'Credenciales Invalidas' }),
+      { status: 401 }
+    );
+
+    /*  RENDERIZAR EL COMPONENTE <Login />  */
+    global.alert = jest.fn();
+
+    render(
+      <Router>
+        <Login />
+      </Router>
+    );
+
+    /*  SIMULAR CAMBIOS EN LOS INPUTS  */
+    fireEvent.change(screen.getByLabelText(/Nombre de usuario/i), {
+      target: { value: 'testuser' }
+    });
+    fireEvent.change(screen.getByLabelText(/Contraseña/i), {
+      target: { value: 'password' }
+    });
+
+    fireEvent.click(screen.getByText(/Ingresar/i));
+
+    /*  ESPERAR A QUE SE REALICE LA PETICIÓN  */
+    await waitFor(() => {
+      expect(global.alert).toHaveBeenCalledWith('Credenciales Invalidas');
+    });
+  });
+});

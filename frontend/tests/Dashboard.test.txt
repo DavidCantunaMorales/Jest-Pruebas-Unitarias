@@ -1,0 +1,59 @@
+/* eslint-disable no-undef */
+
+/* SIMULAR ENRUTAMIENTO DEL TEST */
+import { MemoryRouter } from 'react-router-dom';
+/*  RENDERIZAR COMPONENTES Y SIMULAR EVENTOS  */
+import { render, screen, waitFor } from '@testing-library/react';
+/* COMPONENTES ADICIONALES DE JEST   */
+import '@testing-library/jest-dom';
+/* IMPORTAR COMPONENTE A PROBAR */
+import DashboardSistema from '../src/components/DashboardSistema';
+
+/* SIMULAR LAS RESPUESTAS DE LOS ENPOINTS */
+const mockFetch = jest.fn((url) => {
+  const responses = {
+    'http://localhost:4000/users': { count: 2 },
+    'http://localhost:4000/roles': { count: 10 },
+    'http://localhost:4000/proveedores': { count: 5 },
+    'http://localhost:4000/categorias': { count: 7 },
+    'http://localhost:4000/productos': { count: 12 },
+    'http://localhost:4000/existencias': { count: 8 },
+    'http://localhost:4000/entradas': { count: 6 },
+    'http://localhost:4000/salidas': { count: 3 }
+  };
+
+  /* RETORNA UNA PROMESA CON LA RESPUESTA DE LA API */
+  return Promise.resolve({
+    json: () => Promise.resolve(responses[url])
+  });
+});
+
+/* DESCRIPCION DE LA PRUEBA */
+describe('DashboardSistema', () => {
+  /* ASEGURAR QUE SE UTILICEN LOS MOCKS Y LIMPIAR MOCKS ANTERIORES */
+  beforeEach(() => {
+    global.fetch = mockFetch;
+    mockFetch.mockClear();
+  });
+
+  /* PRUEBA DE QUE SE MUESTREN LOS DATOS DEL DASHBOARD CORRECTAMENTE */
+  test('Muestra los datos del dashboard correctamente con los valores esperados', async () => {
+    render(
+      <MemoryRouter>
+        <DashboardSistema />
+      </MemoryRouter>
+    );
+
+    // Espera a que las llamadas a la API se resuelvan
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument(); // Usuarios
+      expect(screen.getByText('10')).toBeInTheDocument(); // Roles
+      expect(screen.getByText('5')).toBeInTheDocument(); // Proveedores
+      expect(screen.getByText('7')).toBeInTheDocument(); // Categorías
+      expect(screen.getByText('12')).toBeInTheDocument(); // Productos
+      expect(screen.getByText('8')).toBeInTheDocument(); // Existencias
+      expect(screen.getByText('6')).toBeInTheDocument(); // Entradas
+      expect(screen.getByText('3')).toBeInTheDocument(); // Salidas
+    });
+  });
+});

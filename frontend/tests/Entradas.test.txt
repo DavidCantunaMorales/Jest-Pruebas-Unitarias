@@ -1,0 +1,98 @@
+/* eslint-disable no-undef */
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import MovimientoForm from '../src/components/MovimientoForm';
+import alertify from 'alertifyjs';
+
+jest.mock('alertifyjs', () => ({
+  error: jest.fn(),
+  success: jest.fn()
+}));
+
+global.fetch = jest.fn();
+
+describe('MovimientoForm', () => {
+  beforeEach(() => {
+    fetch.mockClear();
+    alertify.error.mockClear();
+    alertify.success.mockClear();
+  });
+
+  // FUNCIONA
+  it('Registrar una entrada con un valor positivo', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({})
+    });
+
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="entrada"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: '10' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Entrada/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:4000/entradas',
+        expect.any(Object)
+      );
+      expect(alertify.success).toHaveBeenCalledWith(
+        'Movimiento de entrada registrado con éxito'
+      );
+    });
+  });
+
+  // FUNCIONA
+  it('Mensaje de error al registrar una entrada con un valor negativo', async () => {
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="entrada"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: '-5' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Entrada/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El campo cantidad solo admite números enteros'
+      );
+    });
+  });
+
+  //
+  it('Mensaje de error al registrar una entrada con caracteres no válidos', async () => {
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="entrada"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: 'abc' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Entrada/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El campo cantidad solo admite números enteros'
+      );
+    });
+  });
+});

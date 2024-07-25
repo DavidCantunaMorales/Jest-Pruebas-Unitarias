@@ -1,0 +1,112 @@
+/* eslint-disable no-undef */
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import CategoriaForm from '../src/components/CategoriaForm';
+import alertify from 'alertifyjs';
+
+jest.mock('alertifyjs', () => ({
+  error: jest.fn(),
+  success: jest.fn()
+}));
+
+global.fetch = jest.fn();
+
+describe('CategoriaForm', () => {
+  beforeEach(() => {
+    fetch.mockClear();
+    alertify.error.mockClear();
+    alertify.success.mockClear();
+  });
+
+  it('El componente <CategoriaForm /> se renderiza correctamente', () => {
+    render(<CategoriaForm onClose={() => {}} onSave={() => {}} />);
+    console.log(
+      'Prueba de Renderizado: El componente se ha renderizado correctamente'
+    );
+    expect(screen.getByLabelText('Nombre Categoría')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Guardar/i })
+    ).toBeInTheDocument();
+  });
+
+  it('Carga y muestra los datos de la categoría cuando se proporciona categoriaId', async () => {
+    global.fetch.mockResolvedValueOnce({
+      json: () => Promise.resolve({ nombre_categoria: 'Electronicos' })
+    });
+
+    render(
+      <CategoriaForm categoriaId="1" onClose={() => {}} onSave={() => {}} />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nombre Categoría')).toHaveValue(
+        'Electronicos'
+      );
+      console.log(
+        'Prueba de Carga de Datos: Los datos de la categoría se han cargado y mostrado correctamente'
+      );
+    });
+  });
+
+  it('Muestra un mensaje de error si el nombre de la categoría está vacío', async () => {
+    render(<CategoriaForm onClose={() => {}} onSave={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('Nombre Categoría'), {
+      target: { value: '' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El campo no debe estar vacío'
+      );
+      console.log(
+        'Prueba de Validación de Campo Vacío: Se mostró el mensaje de error para campo vacío'
+      );
+    });
+  });
+
+  it('Muestra un mensaje de error si el nombre de la categoría contiene caracteres no permitidos', async () => {
+    render(<CategoriaForm onClose={() => {}} onSave={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('Nombre Categoría'), {
+      target: { value: '123' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El nombre de la categoría solo debe contener letras'
+      );
+      console.log(
+        'Prueba de Validación de Caracteres No Permitidos: Se mostró el mensaje de error para caracteres no permitidos'
+      );
+    });
+  });
+
+  it('Envía el formulario con los datos correctos', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({})
+    });
+
+    render(<CategoriaForm onClose={() => {}} onSave={() => {}} />);
+
+    fireEvent.change(screen.getByLabelText('Nombre Categoría'), {
+      target: { value: 'Oficina' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith('http://localhost:4000/categorias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre_categoria: 'Oficina' })
+      });
+      console.log(
+        'Prueba de Envío de Formulario: El formulario se envió con los datos correctos'
+      );
+    });
+  });
+});

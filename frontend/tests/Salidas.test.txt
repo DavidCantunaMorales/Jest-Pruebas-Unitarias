@@ -1,0 +1,154 @@
+/* eslint-disable no-undef */
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import MovimientoForm from '../src/components/MovimientoForm';
+import alertify from 'alertifyjs';
+
+jest.mock('alertifyjs', () => ({
+  error: jest.fn(),
+  success: jest.fn()
+}));
+
+global.fetch = jest.fn();
+
+describe('MovimientoForm', () => {
+  beforeEach(() => {
+    fetch.mockClear();
+    alertify.error.mockClear();
+    alertify.success.mockClear();
+  });
+
+  // FUNCIONA
+  it('Debería permitir registrar una salida con un valor positivo', async () => {
+    global.fetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({})
+    });
+
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="salida"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: '10' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Salida/i }));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        'http://localhost:4000/salidas',
+        expect.any(Object)
+      );
+      expect(alertify.success).toHaveBeenCalledWith(
+        'Movimiento de salida registrado con éxito'
+      );
+    });
+  });
+
+  it('Debería mostrar un mensaje de error al registrar una salida con un valor negativo', async () => {
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="salida"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: '-5' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Salida/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El campo cantidad solo admite números enteros'
+      );
+    });
+  });
+
+  //
+  it('Debería mostrar un mensaje de error al registrar una salida con caracteres no válidos', async () => {
+    render(
+      <MovimientoForm
+        existencia={{ id_existencia: '1' }}
+        onClose={() => {}}
+        onMovement={() => {}}
+        tipo="salida"
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Cantidad *'), {
+      target: { value: 'abc' }
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Registrar Salida/i }));
+
+    await waitFor(() => {
+      expect(alertify.error).toHaveBeenCalledWith(
+        'El campo cantidad solo admite números enteros'
+      );
+    });
+  });
+});
+
+describe('MovimientoForm', () => {
+  const mockExistencia = {
+    id_existencia: 1,
+    stockinicial_existencia: 12,
+    stockactual_existencia: 94,
+    preciocompra_existencia: 32,
+    precioventa_existencia: 45,
+    nombre_producto: 'Laptop',
+    nombre_categoria: 'Ropa',
+    nombre_proveedor: 'asd',
+    gestionada_por: 'david'
+  };
+  const mockOnClose = jest.fn();
+  const mockOnMovement = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn(() =>
+      Promise.resolve({
+        ok: false,
+        json: () =>
+          Promise.resolve({
+            message: 'Movimiento de salida registrado con éxito'
+          })
+      })
+    );
+  });
+
+  test('no permite registrar una salida mayor al stock actual', async () => {
+    render(
+      <MovimientoForm
+        existencia={mockExistencia}
+        onClose={mockOnClose}
+        onMovement={mockOnMovement}
+        tipo="salida"
+      />
+    );
+
+    // Ingresar una cantidad mayor al stock actual
+    fireEvent.change(screen.getByLabelText(/Cantidad */i), {
+      target: { value: '15' }
+    });
+    fireEvent.click(screen.getByText(/Registrar Salida/i));
+
+    await waitFor(() => {
+      // Verifica que se muestra un mensaje de error
+      expect(alertify.error).toHaveBeenCalledWith(
+        'No se puede registrar una salida mayor al stock actual'
+      );
+    });
+
+    // Verifica que no se haya llamado a onMovement (ya que la salida no debe registrarse)
+    expect(mockOnMovement).not.toHaveBeenCalled('Se registro la salida');
+  });
+});
